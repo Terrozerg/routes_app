@@ -1,4 +1,4 @@
-package com.example.terrozerg.myapplication;
+package com.example.terrozerg.routes;
 
 import androidx.annotation.NonNull;
 import androidx.annotation.Nullable;
@@ -26,6 +26,8 @@ import android.widget.Button;
 import android.widget.TextView;
 import android.widget.Toast;
 
+import com.example.terrozerg.routes.ping.PingRepository;
+import com.example.terrozerg.routes.ping.internetCheckCallback;
 import com.google.android.gms.common.api.ResolvableApiException;
 import com.google.android.gms.location.FusedLocationProviderClient;
 import com.google.android.gms.location.LocationCallback;
@@ -57,7 +59,6 @@ import java.io.FileInputStream;
 import java.io.FileOutputStream;
 import java.io.IOException;
 import java.io.InputStreamReader;
-import java.net.InetAddress;
 import java.nio.charset.StandardCharsets;
 import java.util.ArrayList;
 import java.util.Calendar;
@@ -85,7 +86,7 @@ public class MapsActivity extends FragmentActivity
     private LocationRequest locationRequest;
 
     //polyline
-    private Polyline polyline;
+    private Polyline currPolyline;
     private List<LatLng> polylinePoints;
     private PolylineOptions polylineOptions;
     //temp save polyline
@@ -94,7 +95,7 @@ public class MapsActivity extends FragmentActivity
     //loaded polyline
     private Polyline loadedPolyline;
     private List<LatLng> loadedPolylinePoints;
-    private PolylineOptions loadedPolylineOptions;
+    //private PolylineOptions loadedPolylineOptions;
 
     private View polyLoad;
     private View polySave;
@@ -111,12 +112,12 @@ public class MapsActivity extends FragmentActivity
     private float dist;
     private int time;
     //distance measure
-    private String measure;
-    private int multi;
+    private String distanceMeasure;
+    private int distanceMultiplier;
 
     private LatLng savedLtg;
-    public float scale;
-    private int padding;
+    public float screenScale;
+    private int mapBorderPadding;
 
     private GoogleMap mMap;
 
@@ -139,21 +140,21 @@ public class MapsActivity extends FragmentActivity
         speedText.setLines(3);
 
         //onscreen distance measure default
-        measure = "m";
-        multi=1;
+        distanceMeasure = "m";
+        distanceMultiplier =1;
 
         clearBtn = (Button) findViewById(R.id.clearBtn);
         polyLoad = (Button) findViewById(R.id.loadBtn);
         polySave = (Button) findViewById(R.id.saveBtn);
 
         //dp to pxl scale
-        scale = getResources().getDisplayMetrics().density;
+        screenScale = getResources().getDisplayMetrics().density;
         //map border padding
-        padding = (int) (getResources().getDimension(R.dimen.map_borders_padding) * scale + 0.5f);
+        mapBorderPadding = (int) (getResources().getDimension(R.dimen.map_borders_padding) * screenScale + 0.5f);
 
         //poly
         polylinePoints = new ArrayList<>();
-        polyline = null;
+        currPolyline = null;
         savedPolyPoints = new ArrayList<>();
         //poly styling
         polylineOptions = new PolylineOptions()
@@ -162,9 +163,9 @@ public class MapsActivity extends FragmentActivity
         //loaded route
         loadedPolylinePoints = new ArrayList<>();
         loadedPolyline = null;
-        loadedPolylineOptions = new PolylineOptions()
+        /*loadedPolylineOptions = new PolylineOptions()
                 .color(Color.RED)
-                .width(getResources().getDimensionPixelSize(R.dimen.map_poly_width));
+                .width(getResources().getDimensionPixelSize(R.dimen.map_poly_width));*/
 
         //time
         startTime = 0;
@@ -175,31 +176,31 @@ public class MapsActivity extends FragmentActivity
 
         //TODO remake this btn to "get back from loaded route" button
 
-        clearBtn.setVisibility(View.INVISIBLE);
+        //clearBtn.setVisibility(View.INVISIBLE);
         //move camera to last saved location, if it exists
         clearBtn.setOnClickListener(new View.OnClickListener() {
             @Override
             public void onClick(View view) {
-                /*if(polyline != null) {
+                if(currPolyline != null) {
                     Log.d("DEBUG_LOGS", "clearing polyline and points.");
                     //re-add polyline on the map
                     polylinePoints.clear();
-                    polyline.remove();
-                    polyline = mMap.addPolyline(polylineOptions.addAll(polylinePoints));
+                    currPolyline.remove();
+                    currPolyline = mMap.addPolyline(polylineOptions.addAll(polylinePoints));
                     savedPolyPoints.clear();
 
                     //test delete distance
                     dist=0;
                     savedLtg=null;
                     //measures
-                    measure = "m";
-                    multi=1;
+                    distanceMeasure = "m";
+                    distanceMultiplier =1;
 
                     startTime = Calendar.getInstance().getTimeInMillis();
-                }*/
+                }
 
                 //test return to old polyline
-                onBackPressed();
+                //onBackPressed();
             }
         });
 
@@ -213,17 +214,18 @@ public class MapsActivity extends FragmentActivity
         });
 
         //TODO use sql database to store data?
+        //TODO no hash no serializable
         //poly save
         polySave.setOnClickListener(new View.OnClickListener() {
             @Override
             public void onClick(View view) {
                 //save points
-                if(polyline != null) {
-                    //CALCULATE DIFF
+                if(currPolyline != null) {
+                    //GET TIME DIFF
                     currTime = Calendar.getInstance(Locale.ENGLISH).getTimeInMillis();
                     long diff = currTime - startTime;
 
-                    savedPolyPoints = polyline.getPoints();
+                    savedPolyPoints = currPolyline.getPoints();
                     //tempSave.setPoints(polyline.getPoints());
 
                     if(savedPolyPoints==null) {
@@ -297,13 +299,13 @@ public class MapsActivity extends FragmentActivity
 
                     //distance
                     if(savedLtg != null){
-                        dist += SphericalUtil.computeDistanceBetween(savedLtg, ltg)/multi;
+                        dist += SphericalUtil.computeDistanceBetween(savedLtg, ltg)/ distanceMultiplier;
 
                         //change measure to km
-                        if(measure.equals("m") && dist>999){
-                            measure = "km";
-                            multi=1000;
-                            dist = dist/multi;
+                        if(distanceMeasure.equals("m") && dist>999){
+                            distanceMeasure = "km";
+                            distanceMultiplier =1000;
+                            dist = dist/ distanceMultiplier;
                         }
                     }
                     else {
@@ -345,12 +347,12 @@ public class MapsActivity extends FragmentActivity
                     polylinePoints.add(ltg);
 
                     //add polyline
-                    if(polyline!=null){
-                        polyline.setPoints(polylinePoints);
+                    if(currPolyline !=null){
+                        currPolyline.setPoints(polylinePoints);
                     }
                     else{
                         //test
-                        polyline = mMap.addPolyline(new PolylineOptions()
+                        currPolyline = mMap.addPolyline(new PolylineOptions()
                                 .color(Color.RED)
                                 .width(getResources().getDimensionPixelSize(R.dimen.map_poly_width))
                                 .addAll(polylinePoints));
@@ -360,7 +362,7 @@ public class MapsActivity extends FragmentActivity
                     double speed = Math.round(location.getSpeed()*3.6);
 
                     //set main text
-                    speedText.setText(String.format(Locale.ENGLISH,"%s k/h\n%.1f %s", speed, dist, measure));
+                    speedText.setText(String.format(Locale.ENGLISH,"%s k/h\n%.1f %s", speed, dist, distanceMeasure));
 
                     //accuracy
                     //Log.d(Tag, "Accuracy: "+location.getAccuracy());
@@ -370,55 +372,7 @@ public class MapsActivity extends FragmentActivity
 
     }
 
-    interface internetCheckCallback {
-        void onComplete(boolean b);
-    }
-
-    //class for handling internet connection check
-    private static class PingRepository{
-        private final Executor executor;
-        private final Handler handler;
-
-        public PingRepository(Executor executor, Handler handler){
-            this.executor = executor;
-            this.handler = handler;
-        }
-
-        //inet check
-        private boolean check(){
-            try {
-                InetAddress address = InetAddress.getByName("google.com");
-                return !address.equals("");
-
-            } catch (Exception e) {
-                return false;
-            }
-        }
-
-        //main func
-        public void request(final internetCheckCallback callback){
-            executor.execute(new Runnable() {
-                @Override
-                public void run() {
-                    boolean result = check();
-                    notifyResult(callback, result);
-                }
-            });
-        }
-
-        //notify main thread
-        private void notifyResult(final internetCheckCallback callback, final boolean result){
-            handler.post(new Runnable() {
-                @Override
-                public void run() {
-                    callback.onComplete(result);
-                }
-            });
-        }
-
-    }
-
-    //wraper
+    //make ping request using PingRepository
     public void makeRequest(final File folder){
         Executor executor = Executors.newFixedThreadPool(4);
         Handler mainThreadHandler = HandlerCompat.createAsync(Looper.getMainLooper());
@@ -446,6 +400,7 @@ public class MapsActivity extends FragmentActivity
         });
     }
 
+    //setting bounds of loaded route
     private LatLngBounds buildBounds(List<LatLng> route){
         LatLngBounds.Builder builder = new LatLngBounds.Builder();
         for (int i = 0; i < route.size(); i++) {
@@ -459,13 +414,17 @@ public class MapsActivity extends FragmentActivity
     private void saveSnapshot(final File folder){
         stopLocationUpdates();
 
-        LatLngBounds bounds = buildBounds(savedPolyPoints);
+        /*LatLngBounds bounds = buildBounds(savedPolyPoints);
 
         CameraUpdate cameraPosition;
         cameraPosition = CameraUpdateFactory.newLatLngBounds(bounds, padding);
 
         //ugly premove to set zoom
-        mMap.moveCamera(CameraUpdateFactory.zoomTo(18));
+        mMap.moveCamera(CameraUpdateFactory.zoomTo(18));*/
+
+        //test
+        //TODO debug
+        CameraUpdate cameraPosition = getCenterRouteCameraPos(savedPolyPoints);
 
         //pipe
         //move camera
@@ -529,7 +488,7 @@ public class MapsActivity extends FragmentActivity
         settings.setZoomGesturesEnabled(true);
 
         //padding
-        int mapPadding = (int) (getResources().getDimension(R.dimen.map_padding)*scale);
+        int mapPadding = (int) (getResources().getDimension(R.dimen.map_padding)* screenScale);
         //mMap.setPadding(0,mapPadding/2,0, mapPadding);
 
         mMap.setOnMyLocationClickListener(this);
@@ -602,7 +561,7 @@ public class MapsActivity extends FragmentActivity
                         resolvable.startResolutionForResult(MapsActivity.this,
                                 LOCATION_REQUEST_CHECK_SETTINGS);
                     } catch (IntentSender.SendIntentException sendEx) {
-                        // Ignore the error.
+                        Log.e(Tag, sendEx.getMessage());
                     }
                 }
             }
@@ -641,9 +600,9 @@ public class MapsActivity extends FragmentActivity
             loadedPolylinePoints.clear();
             loadedPolyline.remove();
 
-            if(polyline!=null){
-                Log.d(Tag, "Re-adding polyline: "+polyline.getPoints());
-                Log.d(Tag, "Re- polyline points: "+polylinePoints);
+            if(currPolyline !=null){
+                Log.d(Tag, "Re-adding polyline: "+ currPolyline.getPoints());
+                Log.d(Tag, "Re-polyline points: "+polylinePoints);
             }
 
             //return old polyline and set camera updates on
@@ -652,7 +611,7 @@ public class MapsActivity extends FragmentActivity
             //TODO cant reuse poly options,
             // need to make a new options instance each time
 
-            polyline = mMap.addPolyline(new PolylineOptions()
+            currPolyline = mMap.addPolyline(new PolylineOptions()
                     .color(Color.RED)
                     .width(getResources().getDimensionPixelSize(R.dimen.map_poly_width))
                     .addAll(polylinePoints));
@@ -660,7 +619,11 @@ public class MapsActivity extends FragmentActivity
             cameraUserInputCounter = 15;
 
             switchMyLocation(true);
-            clearBtn.setVisibility(View.INVISIBLE);
+            //clearBtn.setVisibility(View.INVISIBLE);
+
+            //test
+            clearBtn.setVisibility(View.VISIBLE);
+
             polySave.setVisibility(View.VISIBLE);
             Log.d(Tag, "removed loaded polyline and returned to old one.");
         }
@@ -709,14 +672,18 @@ public class MapsActivity extends FragmentActivity
                         Bundle bundle = data.getExtras();
 
                         if (bundle != null) {
-                            clearBtn.setVisibility(View.VISIBLE);
+                            //clearBtn.setVisibility(View.VISIBLE);
                             polySave.setVisibility(View.INVISIBLE);
+
+                            //test
+                            //TODO make 1 button do all
+                            clearBtn.setVisibility(View.INVISIBLE);
 
                             //stop camera updates here
                             cameraUserInputCounter = 0;
 
                             //TODO rewrite existing polyline since all points are saved in savedPolyPoints?
-                            polyline.remove();
+                            currPolyline.remove();
 
                             switchMyLocation(false);
 
@@ -731,11 +698,15 @@ public class MapsActivity extends FragmentActivity
                             loadedPolyline = mMap.addPolyline(new PolylineOptions().addAll(loadedPolylinePoints));
 
                             //ugly premove to set zoom
-                            mMap.moveCamera(CameraUpdateFactory.zoomTo(18));
+                            /*mMap.moveCamera(CameraUpdateFactory.zoomTo(18));
 
                             LatLngBounds bounds = buildBounds(loadedPolylinePoints);
                             CameraUpdate cameraPosition = CameraUpdateFactory.newLatLngBounds(bounds, padding);
 
+                            mMap.moveCamera(cameraPosition);*/
+
+                            //set position of camera to center of loaded route
+                            CameraUpdate cameraPosition = getCenterRouteCameraPos(loadedPolylinePoints);
                             mMap.moveCamera(cameraPosition);
 
                             Log.d(Tag, "Loaded points: "+loadedPolylinePoints);
@@ -757,6 +728,15 @@ public class MapsActivity extends FragmentActivity
         else {
             super.onActivityResult(requestCode, resultCode, data);
         }
+    }
+
+    private CameraUpdate getCenterRouteCameraPos(List<LatLng> points){
+        //ugly premove to set zoom
+        mMap.moveCamera(CameraUpdateFactory.zoomTo(18));
+
+        LatLngBounds bounds = buildBounds(points);
+
+        return CameraUpdateFactory.newLatLngBounds(bounds, mapBorderPadding);
     }
 
     private void switchMyLocation(boolean flag) {
@@ -817,28 +797,26 @@ public class MapsActivity extends FragmentActivity
 
         try(FileInputStream fis = getApplicationContext().openFileInput("saved_location")) {
 
-            InputStreamReader inputStreamReader =
-                    new InputStreamReader(fis, StandardCharsets.UTF_8);
             //StringBuilder stringBuilder = new StringBuilder();
 
-            try (BufferedReader reader = new BufferedReader(inputStreamReader)) {
+            try (InputStreamReader inputStreamReader = new InputStreamReader(fis, StandardCharsets.UTF_8);
+                 BufferedReader reader = new BufferedReader(inputStreamReader)) {
                 String line = reader.readLine();
-                int iterator = 0;
+                int iter = 0;
 
                 while (line != null) {
-                    latlang[iterator]=Double.valueOf(line);
+                    latlang[iter] = Double.valueOf(line);
 
                     //stringBuilder.append(line).append('\n');
                     line = reader.readLine();
 
-                    iterator++;
+                    iter++;
                 }
             } catch (IOException e) {
                 // Error occurred when opening raw file for reading.
-                Log.d("DEBUG_LOGS","raw file reading error."+e.getMessage());
+                Log.d("DEBUG_LOGS", "raw file reading error." + e.getMessage());
             } finally {
-                contents = new LatLng(latlang[0],latlang[1]);
-                inputStreamReader.close();
+                contents = new LatLng(latlang[0], latlang[1]);
                 //contents = stringBuilder.toString();
             }
 

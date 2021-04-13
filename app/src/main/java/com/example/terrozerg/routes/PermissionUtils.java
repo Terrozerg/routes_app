@@ -13,7 +13,7 @@
 // limitations under the License.
 
 
-package com.example.terrozerg.myapplication;
+package com.example.terrozerg.routes;
 
 import android.Manifest;
 import android.app.AlertDialog;

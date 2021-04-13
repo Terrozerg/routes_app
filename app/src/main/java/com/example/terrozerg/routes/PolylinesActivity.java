@@ -1,8 +1,5 @@
-package com.example.terrozerg.myapplication;
+package com.example.terrozerg.routes;
 
-import android.app.Activity;
-import android.app.AlertDialog;
-import android.content.DialogInterface;
 import android.content.Intent;
 import android.graphics.Bitmap;
 import android.graphics.BitmapFactory;
@@ -10,6 +7,7 @@ import android.graphics.drawable.BitmapDrawable;
 import android.graphics.drawable.Drawable;
 import android.os.Bundle;
 
+import com.example.terrozerg.routes.saved_route.RouteView;
 import com.google.android.gms.maps.model.LatLng;
 import com.google.android.material.appbar.CollapsingToolbarLayout;
 import com.google.maps.android.SphericalUtil;
@@ -23,11 +21,6 @@ import androidx.core.view.ViewCompat;
 
 import android.util.Log;
 import android.view.Gravity;
-import android.view.MotionEvent;
-import android.view.View;
-import android.view.accessibility.AccessibilityEvent;
-import android.view.accessibility.AccessibilityManager;
-import android.view.accessibility.AccessibilityNodeInfo;
 import android.widget.RelativeLayout;
 import android.widget.TextView;
 
@@ -39,12 +32,8 @@ import java.io.InputStreamReader;
 import java.nio.charset.StandardCharsets;
 import java.text.SimpleDateFormat;
 import java.util.ArrayList;
-import java.util.Arrays;
 import java.util.Calendar;
 import java.util.Locale;
-
-import static androidx.core.view.accessibility.AccessibilityNodeInfoCompat.AccessibilityActionCompat.ACTION_CLICK;
-import static androidx.core.view.accessibility.AccessibilityNodeInfoCompat.AccessibilityActionCompat.ACTION_LONG_CLICK;
 
 public class PolylinesActivity extends AppCompatActivity {
 
@@ -292,8 +281,8 @@ public class PolylinesActivity extends AppCompatActivity {
         //TODO if ontouchlistener - need custom view | if onclick - normal views are ok, but need to match view size with clickable area
         // split all information in separate views, and wrap in constrain layout container?
         // or create custom view(somehow) with all information in matching fields?
-        //test
-        //custom view
+
+        //custom view of saved route
         RouteView newText = new RouteView(PolylinesActivity.this);
         newText.setId(ViewCompat.generateViewId());
 

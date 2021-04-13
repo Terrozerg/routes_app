@@ -4,15 +4,16 @@
     xmlns:app="http://schemas.android.com/apk/res-auto"
     android:id="@+id/mainRelativeLayout"
     android:layout_width="match_parent"
+    android:screenOrientation="portrait"
     android:layout_height="match_parent"
     tools:context=".MapsActivity">
 
-    <fragment
+    <androidx.fragment.app.FragmentContainerView
         android:id="@+id/map"
         android:name="com.google.android.gms.maps.SupportMapFragment"
         android:layout_width="match_parent"
         android:layout_height="match_parent">
-    </fragment>
+    </androidx.fragment.app.FragmentContainerView>
 
     <TextView
         android:layout_alignParentTop="true"
